@@ -128,6 +128,22 @@ type GetNetworkInfoResult struct {
 	} `json:"result"`
 }
 
+type GetInfoChainResult struct {
+	Error  Error `json:"error"`
+	Result struct {
+		Version         int32   `json:"version"`
+		ProtocolVersion int32   `json:"protocolversion"`
+		Blocks          int64   `json:"blocks"`
+		TimeOffset      int64   `json:"timeoffset"`
+		Connections     int32   `json:"connections"`
+		Proxy           string  `json:"proxy"`
+		Difficulty      float64 `json:"difficulty"`
+		TestNet         bool    `json:"testnet"`
+		RelayFee        float64 `json:"relayfee"`
+		Errors          string  `json:"errors"`
+	}
+}
+
 type GetBestBlockResult struct {
 	Error  Error `json:"error"`
 	Result struct {
@@ -137,13 +153,43 @@ type GetBestBlockResult struct {
 }
 
 type GetBlockHashResult struct {
+	Error  Error  `json:"error"`
+	Result string `json:"result"`
+}
+
+type GetBlockResult struct {
 	Error  Error `json:"error"`
 	Result struct {
-		Hash string `json:"hash"`
+		Hash          string   `json:"hash"`
+		Confirmations int64    `json:"confirmations"`
+		Size          int32    `json:"size"`
+		Height        int64    `json:"height"`
+		Version       int32    `json:"version"`
+		MerkleRoot    string   `json:"merkleroot"`
+		StakeRoot     string   `json:"stakeroot"`
+		RawTx         []RawTx  `json:"rawtx"`
+		Tx            []string `json:"tx,omitempty"`
+		STx           []string `json:"stx,omitempty"`
+		Time          int64    `json:"time"`
+		Nonce         uint32   `json:"nonce"`
+		VoteBits      uint16   `json:"votebits"`
+		FinalState    string   `json:"finalstate"`
+		Voters        uint16   `json:"voters"`
+		FreshStake    uint8    `json:"freshstake"`
+		Revocations   uint8    `json:"revocations"`
+		PoolSize      uint32   `json:"poolsize"`
+		Bits          string   `json:"bits"`
+		SBits         float64  `json:"sbits"`
+		ExtraData     string   `json:"extradata"`
+		StakeVersion  uint32   `json:"stakeversion"`
+		Difficulty    float64  `json:"difficulty"`
+		ChainWork     string   `json:"chainwork"`
+		PreviousHash  string   `json:"previousblockhash"`
+		NextHash      string   `json:"nextblockhash,omitempty"`
 	} `json:"result"`
 }
 
-type GetBlockInfoResult struct {
+type GetBlockHeaderResult struct {
 	Error  Error `json:"error"`
 	Result struct {
 		Hash          string  `json:"hash"`
@@ -172,9 +218,6 @@ type GetBlockInfoResult struct {
 	} `json:"result"`
 }
 
-type GetBlockResult struct {
-}
-
 type ScriptSig struct {
 	Asm string `json:"asm"`
 	Hex string `json:"hex"`
@@ -190,7 +233,7 @@ type Vin struct {
 	AmountIn    float64    `json:"amountin"`
 	BlockHeight uint32     `json:"blockheight"`
 	BlockIndex  uint32     `json:"blockindex"`
-	ScriptSig   *ScriptSig `json:"scriptSig"`
+	ScriptSig   *ScriptSig `json:"scriptsig"`
 }
 
 type ScriptPubKeyResult struct {
@@ -209,22 +252,26 @@ type Vout struct {
 	ScriptPubKey ScriptPubKeyResult `json:"scriptPubKey"`
 }
 
+type RawTx struct {
+	Hex           string `json:"hex"`
+	Txid          string `json:"txid"`
+	Version       int32  `json:"version"`
+	LockTime      uint32 `json:"locktime"`
+	Vin           []Vin  `json:"vin"`
+	Vout          []Vout `json:"vout"`
+	Expiry        uint32 `json:"expiry"`
+	BlockHash     string `json:"blockhash,omitempty"`
+	BlockHeight   int64  `json:"blockheight,omitempty"`
+	BlockIndex    uint32 `json:"blockindex,omitempty"`
+	Confirmations int64  `json:"confirmations,omitempty"`
+	Time          int64  `json:"time,omitempty"`
+	Blocktime     int64  `json:"blocktime,omitempty"`
+}
+
 type GetTransactionResult struct {
 	Error  Error `json:"error"`
 	Result struct {
-		Hex           string `json:"hex"`
-		Txid          string `json:"txid"`
-		Version       int32  `json:"version"`
-		LockTime      uint32 `json:"locktime"`
-		Vin           []Vin  `json:"vin"`
-		Vout          []Vout `json:"vout"`
-		Expiry        uint32 `json:"expiry"`
-		BlockHash     string `json:"blockhash,omitempty"`
-		BlockHeight   int64  `json:"blockheight,omitempty"`
-		BlockIndex    uint32 `json:"blockindex,omitempty"`
-		Confirmations int64  `json:"confirmations,omitempty"`
-		Time          int64  `json:"time,omitempty"`
-		Blocktime     int64  `json:"blocktime,omitempty"`
+		RawTx
 	} `json:"result"`
 }
 
@@ -254,17 +301,17 @@ func (d *DecredRPC) GetChainInfo() (*bchain.ChainInfo, error) {
 		return nil, fmt.Errorf("Error fetching blockchain info: %s", blockchainInfoResult.Error.Message)
 	}
 
-	networkInfoRequest := GenericCmd{
+	infoChainRequest := GenericCmd{
 		ID:     2,
-		Method: "getnetworkinfo",
+		Method: "getinfo",
 	}
-	networkInfoResult := GetNetworkInfoResult{}
-	err = d.Call(networkInfoRequest, &networkInfoResult)
+	infoChainResult := &GetInfoChainResult{}
+	err = d.Call(infoChainRequest, infoChainResult)
 	if err != nil {
 		return nil, err
 	}
-	if networkInfoResult.Error.Message != "" {
-		return nil, fmt.Errorf("Error fetching network info: %s", networkInfoResult.Error.Message)
+	if infoChainResult.Error.Message != "" {
+		return nil, fmt.Errorf("Error fetching network info: %s", infoChainResult.Error.Message)
 	}
 
 	chainInfo := &bchain.ChainInfo{
@@ -274,10 +321,10 @@ func (d *DecredRPC) GetChainInfo() (*bchain.ChainInfo, error) {
 		Bestblockhash:   blockchainInfoResult.Result.BestBlockHash,
 		Difficulty:      strconv.Itoa(int(blockchainInfoResult.Result.Difficulty)),
 		SizeOnDisk:      blockchainInfoResult.Result.SyncHeight,
-		Version:         strconv.Itoa(int(networkInfoResult.Result.Version)),
+		Version:         strconv.Itoa(int(infoChainResult.Result.Version)),
 		Subversion:      "",
-		ProtocolVersion: strconv.Itoa(int(networkInfoResult.Result.ProtocolVersion)),
-		Timeoffset:      float64(networkInfoResult.Result.TimeOffset),
+		ProtocolVersion: strconv.Itoa(int(infoChainResult.Result.ProtocolVersion)),
+		Timeoffset:      float64(infoChainResult.Result.TimeOffset),
 		Warnings:        "",
 	}
 	return chainInfo, nil
@@ -333,44 +380,36 @@ func (d *DecredRPC) GetBlockHash(height uint32) (string, error) {
 		return "", fmt.Errorf("Error fetching block hash: %s", blockHashResult.Error.Message)
 	}
 
-	return blockHashResult.Result.Hash, err
+	return blockHashResult.Result, err
 }
 
 func (d *DecredRPC) GetBlockHeader(hash string) (*bchain.BlockHeader, error) {
-	blockInfo, err := d.getBlockInfo(hash)
-	if err != nil {
-		return nil, err
-	}
-
-	header := &bchain.BlockHeader{
-		Hash:          blockInfo.Result.Hash,
-		Prev:          blockInfo.Result.PreviousHash,
-		Next:          blockInfo.Result.NextHash,
-		Height:        blockInfo.Result.Height,
-		Confirmations: int(blockInfo.Result.Confirmations),
-		Size:          int(blockInfo.Result.Size),
-		Time:          int64(blockInfo.Result.Size),
-	}
-
-	return header, nil
-}
-
-func (d *DecredRPC) getBlockInfo(hash string) (*GetBlockInfoResult, error) {
 	blockHeaderRequest := GenericCmd{
 		ID:     1,
 		Method: "getblockheader",
 		Params: []interface{}{hash},
 	}
-	blockInfoResult := &GetBlockInfoResult{}
-	err := d.Call(blockHeaderRequest, blockInfoResult)
+
+	blockHeader := &GetBlockHeaderResult{}
+	err := d.Call(blockHeaderRequest, blockHeader)
 	if err != nil {
 		return nil, err
 	}
-	if blockInfoResult.Error.Message != "" {
-		return nil, fmt.Errorf("Error fetching block info: %s", blockInfoResult.Error.Message)
+	if blockHeader.Error.Message != "" {
+		return nil, fmt.Errorf("Error fetching block info: %s", blockHeader.Error.Message)
 	}
 
-	return blockInfoResult, err
+	header := &bchain.BlockHeader{
+		Hash:          blockHeader.Result.Hash,
+		Prev:          blockHeader.Result.PreviousHash,
+		Next:          blockHeader.Result.NextHash,
+		Height:        blockHeader.Result.Height,
+		Confirmations: int(blockHeader.Result.Confirmations),
+		Size:          int(blockHeader.Result.Size),
+		Time:          blockHeader.Result.Time,
+	}
+
+	return header, nil
 }
 
 func (d *DecredRPC) GetBlockHeaderByHeight(height uint32) (*bchain.BlockHeader, error) {
@@ -378,37 +417,88 @@ func (d *DecredRPC) GetBlockHeaderByHeight(height uint32) (*bchain.BlockHeader, 
 }
 
 func (d *DecredRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
-	return nil, nil
-}
-
-func (d *DecredRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
-	if hash == "" {
-		return nil, bchain.ErrBlockNotFound
+	requestHash := hash
+	if requestHash == "" {
+		getHashRequest := GenericCmd{
+			ID:     1,
+			Method: "getblockhash",
+			Params: []interface{}{height},
+		}
+		getHashResult := &GetBlockHashResult{}
+		err := d.Call(getHashRequest, getHashResult)
+		if err != nil {
+			return nil, err
+		}
+		if getHashResult.Error.Message != "" {
+			return nil, fmt.Errorf("Error fetching block hash: %s", getHashResult.Error.Message)
+		}
+		requestHash = getHashResult.Result
 	}
 
-	blockInfo, err := d.getBlockInfo(hash)
+	block, err := d.getBlock(requestHash)
 	if err != nil {
 		return nil, err
 	}
 
 	header := bchain.BlockHeader{
-		Hash:          blockInfo.Result.Hash,
-		Prev:          blockInfo.Result.PreviousHash,
-		Next:          blockInfo.Result.NextHash,
-		Height:        blockInfo.Result.Height,
-		Confirmations: int(blockInfo.Result.Confirmations),
-		Size:          int(blockInfo.Result.Size),
-		Time:          int64(blockInfo.Result.Size),
+		Hash:          block.Result.Hash,
+		Prev:          block.Result.PreviousHash,
+		Next:          block.Result.NextHash,
+		Height:        uint32(block.Result.Height),
+		Confirmations: int(block.Result.Confirmations),
+		Size:          int(block.Result.Size),
+		Time:          block.Result.Time,
+	}
+
+	bchainBlock := &bchain.Block{
+		BlockHeader: header,
+	}
+
+	return bchainBlock, nil
+}
+
+func (d *DecredRPC) getBlock(hash string) (*GetBlockResult, error) {
+	blockRequest := GenericCmd{
+		ID:     1,
+		Method: "getblock",
+		Params: []interface{}{hash},
+	}
+	block := &GetBlockResult{}
+	err := d.Call(blockRequest, block)
+	if err != nil {
+		return nil, err
+	}
+	if block.Error.Message != "" {
+		return nil, fmt.Errorf("Error fetching block info: %s", block.Error.Message)
+	}
+
+	return block, err
+}
+
+func (d *DecredRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
+	block, err := d.getBlock(hash)
+	if err != nil {
+		return nil, err
+	}
+
+	header := bchain.BlockHeader{
+		Hash:          block.Result.Hash,
+		Prev:          block.Result.PreviousHash,
+		Next:          block.Result.NextHash,
+		Height:        uint32(block.Result.Height),
+		Confirmations: int(block.Result.Confirmations),
+		Size:          int(block.Result.Size),
+		Time:          int64(block.Result.Size),
 	}
 
 	bInfo := &bchain.BlockInfo{
 		BlockHeader: header,
-		MerkleRoot:  blockInfo.Result.MerkleRoot,
-		Version:     json.Number(strconv.Itoa(int(blockInfo.Result.Version))),
-		Nonce:       json.Number(strconv.Itoa(int(blockInfo.Result.Nonce))),
-		Bits:        blockInfo.Result.Bits,
-		Difficulty:  json.Number(strconv.FormatFloat(blockInfo.Result.Difficulty, 'e', -1, 64)),
-		Txids:       []string{},
+		MerkleRoot:  block.Result.MerkleRoot,
+		Version:     json.Number(strconv.Itoa(int(block.Result.Version))),
+		Nonce:       json.Number(strconv.Itoa(int(block.Result.Nonce))),
+		Bits:        block.Result.Bits,
+		Difficulty:  json.Number(strconv.FormatFloat(block.Result.Difficulty, 'e', -1, 64)),
+		Txids:       block.Result.Tx,
 	}
 
 	return bInfo, nil
@@ -423,10 +513,11 @@ func (d *DecredRPC) GetTransaction(txid string) (*bchain.Tx, error) {
 		return nil, bchain.ErrTxidMissing
 	}
 
+	verbose := 1
 	getTxRequest := GenericCmd{
-		ID:     1,
+		ID:     10,
 		Method: "getrawtransaction",
-		Params: []interface{}{txid},
+		Params: []interface{}{txid, &verbose},
 	}
 	getTxResult := &GetTransactionResult{}
 	err := d.Call(getTxRequest, &getTxResult)
@@ -437,35 +528,32 @@ func (d *DecredRPC) GetTransaction(txid string) (*bchain.Tx, error) {
 		return nil, fmt.Errorf("Error fetching transaction: %s", getTxResult.Error.Message)
 	}
 
-	var Vin []bchain.Vin
-	var Vout []bchain.Vout
+	var vins = make([]bchain.Vin, 0)
+	var vouts []bchain.Vout
 
-	for _, vin := range getTxResult.Result.Vin {
-		item := bchain.Vin{
-			Coinbase: vin.Coinbase,
-			Txid:     vin.Txid,
-			Vout:     vin.Vout,
-			ScriptSig: bchain.ScriptSig{
-				Hex: vin.ScriptSig.Hex,
-			},
-			Sequence: vin.Sequence,
+	for _, input := range getTxResult.Result.Vin {
+		vin := bchain.Vin{
+			Coinbase:  input.Coinbase,
+			Txid:      input.Txid,
+			Vout:      input.Vout,
+			ScriptSig: bchain.ScriptSig{},
+			Sequence:  input.Sequence,
+			Addresses: []string{},
 		}
-
-		Vin = append(Vin, item)
+		vins = append(vins, vin)
 	}
 
-	for _, vout := range getTxResult.Result.Vout {
-		item := bchain.Vout{
-			//ValueSat: big.Int(vout.Value),
-			JsonValue: json.Number(int64(vout.Value)),
-			N:         vout.N,
+	for _, output := range getTxResult.Result.Vout {
+		vout := bchain.Vout{
+			ValueSat: *big.NewInt(int64(output.Value)),
+			//JsonValue: json.Number(strconv.FormatFloat(output.Value, 'e', -1, 64)),
+			N: output.N,
 			ScriptPubKey: bchain.ScriptPubKey{
-				Hex:       vout.ScriptPubKey.Hex,
-				Addresses: vout.ScriptPubKey.Addresses,
+				Hex:       output.ScriptPubKey.Hex,
+				Addresses: output.ScriptPubKey.Addresses,
 			},
 		}
-
-		Vout = append(Vout, item)
+		vouts = append(vouts, vout)
 	}
 
 	tx := &bchain.Tx{
@@ -473,8 +561,8 @@ func (d *DecredRPC) GetTransaction(txid string) (*bchain.Tx, error) {
 		Txid:          getTxResult.Result.Txid,
 		Version:       getTxResult.Result.Version,
 		LockTime:      getTxResult.Result.LockTime,
-		Vin:           Vin,
-		Vout:          Vout,
+		Vin:           vins,
+		Vout:          vouts,
 		Confirmations: uint32(getTxResult.Result.Confirmations),
 		Time:          getTxResult.Result.Time,
 		Blocktime:     getTxResult.Result.Blocktime,
