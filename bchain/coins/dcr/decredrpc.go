@@ -404,7 +404,10 @@ func (d *DecredRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
 	bInfo := &bchain.BlockInfo{
 		BlockHeader: header,
 		MerkleRoot:  blockInfo.Result.MerkleRoot,
-		Version:     json.Number(blockInfo.Result.Version),
+		Version:     json.Number(strconv.Itoa(int(blockInfo.Result.Version))),
+		Nonce:       json.Number(strconv.Itoa(int(blockInfo.Result.Nonce))),
+		Bits:        blockInfo.Result.Bits,
+		Difficulty:  json.Number(strconv.FormatFloat(blockInfo.Result.Difficulty, 'e', -1, 64)),
 		Txids:       []string{},
 	}
 
