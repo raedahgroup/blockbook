@@ -90,6 +90,11 @@ func (d *DecredRPC) Initialize() error {
 	return nil
 }
 
+type Error struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
 type GenericCmd struct {
 	ID     int           `json:"id"`
 	Method string        `json:"method"`
@@ -97,7 +102,7 @@ type GenericCmd struct {
 }
 
 type GetBlockChainInfoResult struct {
-	Error  string `json:"error"`
+	Error  Error `json:"error"`
 	Result struct {
 		Chain                string  `json:"chain"`
 		Blocks               int64   `json:"blocks"`
@@ -113,7 +118,7 @@ type GetBlockChainInfoResult struct {
 }
 
 type GetNetworkInfoResult struct {
-	Error  string `json:"error"`
+	Error  Error `json:"error"`
 	Result struct {
 		Version         int32   `json:"version"`
 		ProtocolVersion int32   `json:"protocolversion"`
@@ -124,7 +129,7 @@ type GetNetworkInfoResult struct {
 }
 
 type GetBestBlockResult struct {
-	Error  string `json:"error"`
+	Error  Error `json:"error"`
 	Result struct {
 		Hash   string `json:"hash"`
 		Height int64  `json:"height"`
@@ -132,14 +137,14 @@ type GetBestBlockResult struct {
 }
 
 type GetBlockHashResult struct {
-	Error  string `json:"error"`
+	Error  Error `json:"error"`
 	Result struct {
 		Hash string `json:"hash"`
 	} `json:"result"`
 }
 
 type GetBlockInfoResult struct {
-	Error  string `json:"error"`
+	Error  Error `json:"error"`
 	Result struct {
 		Hash          string  `json:"hash"`
 		Confirmations int64   `json:"confirmations"`
@@ -205,7 +210,7 @@ type Vout struct {
 }
 
 type GetTransactionResult struct {
-	Error  string `json:"error"`
+	Error  Error `json:"error"`
 	Result struct {
 		Hex           string `json:"hex"`
 		Txid          string `json:"txid"`
@@ -224,7 +229,7 @@ type GetTransactionResult struct {
 }
 
 type EstimateSmartFeeResult struct {
-	Error  string `json:"error"`
+	Error  Error `json:"error"`
 	Result struct {
 		FeeRate float64  `json:"feerate"`
 		Errors  []string `json:"errors"`
@@ -245,8 +250,8 @@ func (d *DecredRPC) GetChainInfo() (*bchain.ChainInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if blockchainInfoResult.Error != "" {
-		return nil, fmt.Errorf("Error fetching blockchain info: %s", blockchainInfoResult.Error)
+	if blockchainInfoResult.Error.Message != "" {
+		return nil, fmt.Errorf("Error fetching blockchain info: %s", blockchainInfoResult.Error.Message)
 	}
 
 	networkInfoRequest := GenericCmd{
@@ -258,8 +263,8 @@ func (d *DecredRPC) GetChainInfo() (*bchain.ChainInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if networkInfoResult.Error != "" {
-		return nil, fmt.Errorf("Error fetching network info: %s", networkInfoResult.Error)
+	if networkInfoResult.Error.Message != "" {
+		return nil, fmt.Errorf("Error fetching network info: %s", networkInfoResult.Error.Message)
 	}
 
 	chainInfo := &bchain.ChainInfo{
@@ -288,8 +293,8 @@ func (d *DecredRPC) getBestBlock() (*GetBestBlockResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	if bestBlockResult.Error != "" {
-		return nil, fmt.Errorf("Error fetching best block: %s", bestBlockResult.Error)
+	if bestBlockResult.Error.Message != "" {
+		return nil, fmt.Errorf("Error fetching best block: %s", bestBlockResult.Error.Message)
 	}
 
 	return bestBlockResult, err
@@ -324,8 +329,8 @@ func (d *DecredRPC) GetBlockHash(height uint32) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if blockHashResult.Error != "" {
-		return "", fmt.Errorf("Error fetching block hash: %s", blockHashResult.Error)
+	if blockHashResult.Error.Message != "" {
+		return "", fmt.Errorf("Error fetching block hash: %s", blockHashResult.Error.Message)
 	}
 
 	return blockHashResult.Result.Hash, err
@@ -350,14 +355,20 @@ func (d *DecredRPC) GetBlockHeader(hash string) (*bchain.BlockHeader, error) {
 	return header, nil
 }
 
-func (d *DecredRPC) getBlockInfo(hash string) (GetBlockInfoResult, error) {
+func (d *DecredRPC) getBlockInfo(hash string) (*GetBlockInfoResult, error) {
 	blockHeaderRequest := GenericCmd{
 		ID:     1,
 		Method: "getblockheader",
 		Params: []interface{}{hash},
 	}
-	blockInfoResult := GetBlockInfoResult{}
-	err := d.Call(blockHeaderRequest, &blockInfoResult)
+	blockInfoResult := &GetBlockInfoResult{}
+	err := d.Call(blockHeaderRequest, blockInfoResult)
+	if err != nil {
+		return nil, err
+	}
+	if blockInfoResult.Error.Message != "" {
+		return nil, fmt.Errorf("Error fetching block info: %s", blockInfoResult.Error.Message)
+	}
 
 	return blockInfoResult, err
 }
@@ -414,16 +425,19 @@ func (d *DecredRPC) GetTransaction(txid string) (*bchain.Tx, error) {
 		Method: "getrawtransaction",
 		Params: []interface{}{txid},
 	}
-	getTxResponse := GetTransactionResult{}
-	err := d.Call(getTxRequest, &getTxResponse)
+	getTxResult := &GetTransactionResult{}
+	err := d.Call(getTxRequest, &getTxResult)
 	if err != nil {
 		return nil, err
+	}
+	if getTxResult.Error.Message != "" {
+		return nil, fmt.Errorf("Error fetching transaction: %s", getTxResult.Error.Message)
 	}
 
 	var Vin []bchain.Vin
 	var Vout []bchain.Vout
 
-	for _, vin := range getTxResponse.Result.Vin {
+	for _, vin := range getTxResult.Result.Vin {
 		item := bchain.Vin{
 			Coinbase: vin.Coinbase,
 			Txid:     vin.Txid,
@@ -437,7 +451,7 @@ func (d *DecredRPC) GetTransaction(txid string) (*bchain.Tx, error) {
 		Vin = append(Vin, item)
 	}
 
-	for _, vout := range getTxResponse.Result.Vout {
+	for _, vout := range getTxResult.Result.Vout {
 		item := bchain.Vout{
 			//ValueSat: big.Int(vout.Value),
 			JsonValue: json.Number(int64(vout.Value)),
@@ -452,15 +466,15 @@ func (d *DecredRPC) GetTransaction(txid string) (*bchain.Tx, error) {
 	}
 
 	tx := &bchain.Tx{
-		Hex:           getTxResponse.Result.Hex,
-		Txid:          getTxResponse.Result.Txid,
-		Version:       getTxResponse.Result.Version,
-		LockTime:      getTxResponse.Result.LockTime,
+		Hex:           getTxResult.Result.Hex,
+		Txid:          getTxResult.Result.Txid,
+		Version:       getTxResult.Result.Version,
+		LockTime:      getTxResult.Result.LockTime,
 		Vin:           Vin,
 		Vout:          Vout,
-		Confirmations: uint32(getTxResponse.Result.Confirmations),
-		Time:          getTxResponse.Result.Time,
-		Blocktime:     getTxResponse.Result.Blocktime,
+		Confirmations: uint32(getTxResult.Result.Confirmations),
+		Time:          getTxResult.Result.Time,
+		Blocktime:     getTxResult.Result.Blocktime,
 	}
 
 	return tx, nil
@@ -485,6 +499,9 @@ func (d *DecredRPC) EstimateSmartFee(blocks int, conservative bool) (big.Int, er
 	err := d.Call(estimateSmartFeeRequest, &estimateSmartFeeResult)
 	if err != nil {
 		return *big.NewInt(0), nil
+	}
+	if estimateSmartFeeResult.Error.Message != "" {
+		return *big.NewInt(0), fmt.Errorf("Error fetching smart fee estimate: %s", estimateSmartFeeResult.Error.Message)
 	}
 
 	return *big.NewInt(int64(estimateSmartFeeResult.Result.FeeRate)), nil
