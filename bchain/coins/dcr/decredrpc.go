@@ -160,61 +160,61 @@ type GetBlockHashResult struct {
 type GetBlockResult struct {
 	Error  Error `json:"error"`
 	Result struct {
-		Hash          string   `json:"hash"`
-		Confirmations int64    `json:"confirmations"`
-		Size          int32    `json:"size"`
-		Height        int64    `json:"height"`
-		Version       int32    `json:"version"`
-		MerkleRoot    string   `json:"merkleroot"`
-		StakeRoot     string   `json:"stakeroot"`
-		RawTx         []RawTx  `json:"rawtx"`
-		Tx            []string `json:"tx,omitempty"`
-		STx           []string `json:"stx,omitempty"`
-		Time          int64    `json:"time"`
-		Nonce         uint32   `json:"nonce"`
-		VoteBits      uint16   `json:"votebits"`
-		FinalState    string   `json:"finalstate"`
-		Voters        uint16   `json:"voters"`
-		FreshStake    uint8    `json:"freshstake"`
-		Revocations   uint8    `json:"revocations"`
-		PoolSize      uint32   `json:"poolsize"`
-		Bits          string   `json:"bits"`
-		SBits         float64  `json:"sbits"`
-		ExtraData     string   `json:"extradata"`
-		StakeVersion  uint32   `json:"stakeversion"`
-		Difficulty    float64  `json:"difficulty"`
-		ChainWork     string   `json:"chainwork"`
-		PreviousHash  string   `json:"previousblockhash"`
-		NextHash      string   `json:"nextblockhash,omitempty"`
+		Hash          string      `json:"hash"`
+		Confirmations int64       `json:"confirmations"`
+		Size          int32       `json:"size"`
+		Height        int64       `json:"height"`
+		Version       json.Number `json:"version"`
+		MerkleRoot    string      `json:"merkleroot"`
+		StakeRoot     string      `json:"stakeroot"`
+		RawTx         []RawTx     `json:"rawtx"`
+		Tx            []string    `json:"tx,omitempty"`
+		STx           []string    `json:"stx,omitempty"`
+		Time          int64       `json:"time"`
+		Nonce         json.Number `json:"nonce"`
+		VoteBits      uint16      `json:"votebits"`
+		FinalState    string      `json:"finalstate"`
+		Voters        uint16      `json:"voters"`
+		FreshStake    uint8       `json:"freshstake"`
+		Revocations   uint8       `json:"revocations"`
+		PoolSize      uint32      `json:"poolsize"`
+		Bits          string      `json:"bits"`
+		SBits         float64     `json:"sbits"`
+		ExtraData     string      `json:"extradata"`
+		StakeVersion  uint32      `json:"stakeversion"`
+		Difficulty    float64     `json:"difficulty"`
+		ChainWork     string      `json:"chainwork"`
+		PreviousHash  string      `json:"previousblockhash"`
+		NextHash      string      `json:"nextblockhash,omitempty"`
 	} `json:"result"`
 }
 
 type GetBlockHeaderResult struct {
 	Error  Error `json:"error"`
 	Result struct {
-		Hash          string  `json:"hash"`
-		Confirmations int64   `json:"confirmations"`
-		Version       int32   `json:"version"`
-		MerkleRoot    string  `json:"merkleroot"`
-		StakeRoot     string  `json:"stakeroot"`
-		VoteBits      uint16  `json:"votebits"`
-		FinalState    string  `json:"finalstate"`
-		Voters        uint16  `json:"voters"`
-		FreshStake    uint8   `json:"freshstake"`
-		Revocations   uint8   `json:"revocations"`
-		PoolSize      uint32  `json:"poolsize"`
-		Bits          string  `json:"bits"`
-		SBits         float64 `json:"sbits"`
-		Height        uint32  `json:"height"`
-		Size          uint32  `json:"size"`
-		Time          int64   `json:"time"`
-		Nonce         uint32  `json:"nonce"`
-		ExtraData     string  `json:"extradata"`
-		StakeVersion  uint32  `json:"stakeversion"`
-		Difficulty    float64 `json:"difficulty"`
-		ChainWork     string  `json:"chainwork"`
-		PreviousHash  string  `json:"previousblockhash,omitempty"`
-		NextHash      string  `json:"nextblockhash,omitempty"`
+		Hash          string      `json:"hash"`
+		Confirmations int64       `json:"confirmations"`
+		Version       json.Number `json:"version"`
+		MerkleRoot    string      `json:"merkleroot"`
+		StakeRoot     string      `json:"stakeroot"`
+		VoteBits      uint16      `json:"votebits"`
+		FinalState    string      `json:"finalstate"`
+		Voters        uint16      `json:"voters"`
+		FreshStake    uint8       `json:"freshstake"`
+		Revocations   uint8       `json:"revocations"`
+		PoolSize      uint32      `json:"poolsize"`
+		Bits          string      `json:"bits"`
+		SBits         float64     `json:"sbits"`
+		Height        uint32      `json:"height"`
+		Size          uint32      `json:"size"`
+		Time          int64       `json:"time"`
+		Nonce         uint32      `json:"nonce"`
+		ExtraData     string      `json:"extradata"`
+		StakeVersion  uint32      `json:"stakeversion"`
+		Difficulty    float64     `json:"difficulty"`
+		ChainWork     string      `json:"chainwork"`
+		PreviousHash  string      `json:"previousblockhash,omitempty"`
+		NextHash      string      `json:"nextblockhash,omitempty"`
 	} `json:"result"`
 }
 
@@ -284,7 +284,24 @@ type EstimateSmartFeeResult struct {
 	} `json:"result"`
 }
 
+type EstimateFeeResult struct {
+	Error  Error       `json:"error"`
+	Result json.Number `json:"result"`
+}
+
 type SendRawTransactionResult struct {
+}
+
+type DecodeRawTransactionResult struct {
+	Error  Error `json:"error"`
+	Result struct {
+		Txid     string `json:"txid"`
+		Version  int32  `json:"version"`
+		Locktime uint32 `json:"locktime"`
+		Expiry   uint32 `json:"expiry"`
+		Vin      []Vin  `json:"vin"`
+		Vout     []Vout `json:"vout"`
+	} `json:"result"`
 }
 
 func (d *DecredRPC) GetChainInfo() (*bchain.ChainInfo, error) {
@@ -447,11 +464,25 @@ func (d *DecredRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) 
 		Height:        uint32(block.Result.Height),
 		Confirmations: int(block.Result.Confirmations),
 		Size:          int(block.Result.Size),
-		Time:          block.Result.Time,
+		Time:          block.Result.Time / 1000,
 	}
 
 	bchainBlock := &bchain.Block{
 		BlockHeader: header,
+	}
+
+	for _, txId := range block.Result.Tx {
+		if block.Result.Height == 0 {
+			continue
+		}
+
+		tx, err := d.GetTransaction(txId)
+		if err != nil {
+			return nil, err
+		}
+
+		bchainBlock.Txs = append(bchainBlock.Txs, *tx)
+
 	}
 
 	return bchainBlock, nil
@@ -475,6 +506,31 @@ func (d *DecredRPC) getBlock(hash string) (*GetBlockResult, error) {
 	return block, err
 }
 
+func (d *DecredRPC) decodeRawTransaction(txHex string) (*bchain.Tx, error) {
+	decodeRawTxRequest := GenericCmd{
+		ID:     1,
+		Method: "decoderawtransaction",
+		Params: []interface{}{txHex},
+	}
+	decodeRawTxResult := &DecodeRawTransactionResult{}
+	err := d.Call(decodeRawTxRequest, &decodeRawTxResult)
+	if err != nil {
+		return nil, err
+	}
+	if decodeRawTxResult.Error.Message != "" {
+		return nil, fmt.Errorf("Error decoding raw tx: %s", decodeRawTxResult.Error.Message)
+	}
+
+	tx := &bchain.Tx{
+		Hex:      txHex,
+		Txid:     decodeRawTxResult.Result.Txid,
+		Version:  decodeRawTxResult.Result.Version,
+		LockTime: decodeRawTxResult.Result.Locktime,
+	}
+
+	return tx, nil
+}
+
 func (d *DecredRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
 	block, err := d.getBlock(hash)
 	if err != nil {
@@ -494,8 +550,8 @@ func (d *DecredRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
 	bInfo := &bchain.BlockInfo{
 		BlockHeader: header,
 		MerkleRoot:  block.Result.MerkleRoot,
-		Version:     json.Number(strconv.Itoa(int(block.Result.Version))),
-		Nonce:       json.Number(strconv.Itoa(int(block.Result.Nonce))),
+		Version:     block.Result.Version,
+		Nonce:       block.Result.Nonce,
 		Bits:        block.Result.Bits,
 		Difficulty:  json.Number(strconv.FormatFloat(block.Result.Difficulty, 'e', -1, 64)),
 		Txids:       block.Result.Tx,
@@ -598,6 +654,27 @@ func (d *DecredRPC) EstimateSmartFee(blocks int, conservative bool) (big.Int, er
 	return *big.NewInt(int64(estimateSmartFeeResult.Result.FeeRate)), nil
 }
 
+func (d *DecredRPC) EstimateFee(blocks int) (big.Int, error) {
+	estimateFeeRequest := GenericCmd{
+		ID:     1,
+		Method: "estimatefee",
+		Params: []interface{}{blocks},
+	}
+
+	estimateFeeResult := EstimateFeeResult{}
+	err := d.Call(estimateFeeRequest, &estimateFeeResult)
+	if err != nil {
+		return *big.NewInt(0), err
+	}
+
+	r, err := d.Parser.AmountToBigInt(estimateFeeResult.Result)
+	if err != nil {
+		return r, err
+	}
+
+	return r, nil
+}
+
 func (d *DecredRPC) SendRawTransaction(tx string) (string, error) {
 	sendRawTxRequest := &GenericCmd{
 		ID:     1,
@@ -665,6 +742,8 @@ func safeDecodeResponse(body io.ReadCloser, res *interface{}) (err error) {
 	if err != nil {
 		return err
 	}
+
+	fmt.Println(string(data))
 
 	error := json.Unmarshal(data, res)
 	return error
