@@ -423,7 +423,7 @@ func (d *DecredRPC) GetBlockHeader(hash string) (*bchain.BlockHeader, error) {
 		Height:        blockHeader.Result.Height,
 		Confirmations: int(blockHeader.Result.Confirmations),
 		Size:          int(blockHeader.Result.Size),
-		Time:          blockHeader.Result.Time,
+		Time:          blockHeader.Result.Time / 1000,
 	}
 
 	return header, nil
@@ -464,7 +464,7 @@ func (d *DecredRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) 
 		Height:        uint32(block.Result.Height),
 		Confirmations: int(block.Result.Confirmations),
 		Size:          int(block.Result.Size),
-		Time:          block.Result.Time / 1000,
+		Time:          block.Result.Time,
 	}
 
 	bchainBlock := &bchain.Block{
@@ -544,7 +544,7 @@ func (d *DecredRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
 		Height:        uint32(block.Result.Height),
 		Confirmations: int(block.Result.Confirmations),
 		Size:          int(block.Result.Size),
-		Time:          int64(block.Result.Size),
+		Time:          int64(block.Result.Time),
 	}
 
 	bInfo := &bchain.BlockInfo{
@@ -565,13 +565,27 @@ func (d *DecredRPC) GetMempoolTransactions() ([]string, error) {
 }
 
 func (d *DecredRPC) GetTransaction(txid string) (*bchain.Tx, error) {
+	r, err := d.getRawTransaction(txid)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := d.Parser.ParseTxFromJson(r)
+	if err != nil {
+		return nil, errors.Annotatef(err, "txid %v", txid)
+	}
+
+	return tx, nil
+}
+
+func (d *DecredRPC) getRawTransaction(txid string) (json.RawMessage, error) {
 	if txid == "" {
 		return nil, bchain.ErrTxidMissing
 	}
 
 	verbose := 1
 	getTxRequest := GenericCmd{
-		ID:     10,
+		ID:     1,
 		Method: "getrawtransaction",
 		Params: []interface{}{txid, &verbose},
 	}
@@ -584,47 +598,12 @@ func (d *DecredRPC) GetTransaction(txid string) (*bchain.Tx, error) {
 		return nil, fmt.Errorf("Error fetching transaction: %s", getTxResult.Error.Message)
 	}
 
-	var vins = make([]bchain.Vin, 0)
-	var vouts []bchain.Vout
-
-	for _, input := range getTxResult.Result.Vin {
-		vin := bchain.Vin{
-			Coinbase:  input.Coinbase,
-			Txid:      input.Txid,
-			Vout:      input.Vout,
-			ScriptSig: bchain.ScriptSig{},
-			Sequence:  input.Sequence,
-			Addresses: []string{},
-		}
-		vins = append(vins, vin)
+	bytes, err := json.Marshal(getTxResult.Result)
+	if err != nil {
+		return nil, errors.Annotatef(err, "txid %v", txid)
 	}
 
-	for _, output := range getTxResult.Result.Vout {
-		vout := bchain.Vout{
-			ValueSat: *big.NewInt(int64(output.Value)),
-			//JsonValue: json.Number(strconv.FormatFloat(output.Value, 'e', -1, 64)),
-			N: output.N,
-			ScriptPubKey: bchain.ScriptPubKey{
-				Hex:       output.ScriptPubKey.Hex,
-				Addresses: output.ScriptPubKey.Addresses,
-			},
-		}
-		vouts = append(vouts, vout)
-	}
-
-	tx := &bchain.Tx{
-		Hex:           getTxResult.Result.Hex,
-		Txid:          getTxResult.Result.Txid,
-		Version:       getTxResult.Result.Version,
-		LockTime:      getTxResult.Result.LockTime,
-		Vin:           vins,
-		Vout:          vouts,
-		Confirmations: uint32(getTxResult.Result.Confirmations),
-		Time:          getTxResult.Result.Time,
-		Blocktime:     getTxResult.Result.Blocktime,
-	}
-
-	return tx, nil
+	return json.RawMessage(bytes), nil
 }
 
 func (d *DecredRPC) GetTransactionForMempool(txid string) (*bchain.Tx, error) {
@@ -632,7 +611,7 @@ func (d *DecredRPC) GetTransactionForMempool(txid string) (*bchain.Tx, error) {
 }
 
 func (d *DecredRPC) GetTransactionSpecific(tx *bchain.Tx) (json.RawMessage, error) {
-	return nil, nil
+	return d.getRawTransaction(tx.Txid)
 }
 
 func (d *DecredRPC) EstimateSmartFee(blocks int, conservative bool) (big.Int, error) {
@@ -742,8 +721,6 @@ func safeDecodeResponse(body io.ReadCloser, res *interface{}) (err error) {
 	if err != nil {
 		return err
 	}
-
-	fmt.Println(string(data))
 
 	error := json.Unmarshal(data, res)
 	return error
