@@ -347,6 +347,24 @@ func (d *DecredRPC) GetChainInfo() (*bchain.ChainInfo, error) {
 	return chainInfo, nil
 }
 
+func (d *DecredRPC) GetBestBlockHash() (string, error) {
+	bestBlock, err := d.getBestBlock()
+	if err != nil {
+		return "", err
+	}
+
+	return bestBlock.Result.Hash, nil
+}
+
+func (d *DecredRPC) GetBestBlockHeight() (uint32, error) {
+	bestBlock, err := d.getBestBlock()
+	if err != nil {
+		return 0, err
+	}
+
+	return uint32(bestBlock.Result.Height), err
+}
+
 func (d *DecredRPC) getBestBlock() (*GetBestBlockResult, error) {
 	bestBlockRequest := GenericCmd{
 		ID:     1,
@@ -364,22 +382,35 @@ func (d *DecredRPC) getBestBlock() (*GetBestBlockResult, error) {
 	return bestBlockResult, err
 }
 
-func (d *DecredRPC) GetBestBlockHash() (string, error) {
-	bestBlock, err := d.getBestBlock()
+/**=====================GET BLOCK FUNCTIONS===========================**/
+
+func (d *DecredRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
+	block, err := d.getBlock(hash)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return bestBlock.Result.Hash, nil
-}
-
-func (d *DecredRPC) GetBestBlockHeight() (uint32, error) {
-	bestBlock, err := d.getBestBlock()
-	if err != nil {
-		return 0, err
+	header := bchain.BlockHeader{
+		Hash:          block.Result.Hash,
+		Prev:          block.Result.PreviousHash,
+		Next:          block.Result.NextHash,
+		Height:        uint32(block.Result.Height),
+		Confirmations: int(block.Result.Confirmations),
+		Size:          int(block.Result.Size),
+		Time:          int64(block.Result.Time),
 	}
 
-	return uint32(bestBlock.Result.Height), err
+	bInfo := &bchain.BlockInfo{
+		BlockHeader: header,
+		MerkleRoot:  block.Result.MerkleRoot,
+		Version:     block.Result.Version,
+		Nonce:       block.Result.Nonce,
+		Bits:        block.Result.Bits,
+		Difficulty:  json.Number(strconv.FormatFloat(block.Result.Difficulty, 'e', -1, 64)),
+		Txids:       block.Result.Tx,
+	}
+
+	return bInfo, nil
 }
 
 func (d *DecredRPC) GetBlockHash(height uint32) (string, error) {
@@ -427,10 +458,6 @@ func (d *DecredRPC) GetBlockHeader(hash string) (*bchain.BlockHeader, error) {
 	}
 
 	return header, nil
-}
-
-func (d *DecredRPC) GetBlockHeaderByHeight(height uint32) (*bchain.BlockHeader, error) {
-	return nil, nil
 }
 
 func (d *DecredRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
@@ -482,17 +509,19 @@ func (d *DecredRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) 
 		}
 
 		bchainBlock.Txs = append(bchainBlock.Txs, *tx)
-
 	}
 
 	return bchainBlock, nil
 }
 
 func (d *DecredRPC) getBlock(hash string) (*GetBlockResult, error) {
+	verbose := true
+	verboseTx := false
+
 	blockRequest := GenericCmd{
 		ID:     1,
 		Method: "getblock",
-		Params: []interface{}{hash},
+		Params: []interface{}{hash, &verbose, &verboseTx},
 	}
 	block := &GetBlockResult{}
 	err := d.Call(blockRequest, block)
@@ -504,60 +533,6 @@ func (d *DecredRPC) getBlock(hash string) (*GetBlockResult, error) {
 	}
 
 	return block, err
-}
-
-func (d *DecredRPC) decodeRawTransaction(txHex string) (*bchain.Tx, error) {
-	decodeRawTxRequest := GenericCmd{
-		ID:     1,
-		Method: "decoderawtransaction",
-		Params: []interface{}{txHex},
-	}
-	decodeRawTxResult := &DecodeRawTransactionResult{}
-	err := d.Call(decodeRawTxRequest, &decodeRawTxResult)
-	if err != nil {
-		return nil, err
-	}
-	if decodeRawTxResult.Error.Message != "" {
-		return nil, fmt.Errorf("Error decoding raw tx: %s", decodeRawTxResult.Error.Message)
-	}
-
-	tx := &bchain.Tx{
-		Hex:      txHex,
-		Txid:     decodeRawTxResult.Result.Txid,
-		Version:  decodeRawTxResult.Result.Version,
-		LockTime: decodeRawTxResult.Result.Locktime,
-	}
-
-	return tx, nil
-}
-
-func (d *DecredRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
-	block, err := d.getBlock(hash)
-	if err != nil {
-		return nil, err
-	}
-
-	header := bchain.BlockHeader{
-		Hash:          block.Result.Hash,
-		Prev:          block.Result.PreviousHash,
-		Next:          block.Result.NextHash,
-		Height:        uint32(block.Result.Height),
-		Confirmations: int(block.Result.Confirmations),
-		Size:          int(block.Result.Size),
-		Time:          int64(block.Result.Time),
-	}
-
-	bInfo := &bchain.BlockInfo{
-		BlockHeader: header,
-		MerkleRoot:  block.Result.MerkleRoot,
-		Version:     block.Result.Version,
-		Nonce:       block.Result.Nonce,
-		Bits:        block.Result.Bits,
-		Difficulty:  json.Number(strconv.FormatFloat(block.Result.Difficulty, 'e', -1, 64)),
-		Txids:       block.Result.Tx,
-	}
-
-	return bInfo, nil
 }
 
 func (d *DecredRPC) GetMempoolTransactions() ([]string, error) {
