@@ -19,20 +19,26 @@ import (
 
 const (
 	MainnetMagic wire.BitcoinNet = 0xd9b400f9
+	TestnetMagic wire.BitcoinNet = 0xb194aa75
 )
 
 var (
 	// MainNetParams are parser parameters for mainnet
 	MainNetParams chaincfg.Params
 	// TestNetParams are parser parameters for testnet
-	TestNetParams chaincfg.Params
+	TestNet3Params chaincfg.Params
 )
 
 func init() {
 	MainNetParams = chaincfg.MainNetParams
 	MainNetParams.Net = MainnetMagic
-	MainNetParams.PubKeyHashAddrID = []byte{0x13, 0x86}
+	MainNetParams.PubKeyHashAddrID = []byte{0x07, 0x3f}
 	MainNetParams.ScriptHashAddrID = []byte{0x07, 0x1a}
+
+	TestNet3Params = chaincfg.TestNet3Params
+	TestNet3Params.Net = TestnetMagic
+	TestNet3Params.PubKeyHashAddrID = []byte{0x0f, 0x21}
+	TestNet3Params.ScriptHashAddrID = []byte{0x0e, 0xfc}
 }
 
 // DecredParser handle
@@ -50,11 +56,16 @@ func NewDecredParser(params *chaincfg.Params, c *btc.Configuration) *DecredParse
 func GetChainParams(chain string) *chaincfg.Params {
 	if !chaincfg.IsRegistered(&MainNetParams) {
 		err := chaincfg.Register(&MainNetParams)
+		if err == nil {
+			err = chaincfg.Register(&TestNet3Params)
+		}
 		if err != nil {
 			panic(err)
 		}
 	}
 	switch chain {
+	case "testnet3":
+		return &TestNet3Params
 	default:
 		return &MainNetParams
 	}
@@ -160,7 +171,14 @@ func (p *DecredParser) GetAddrDescFromVout(output *bchain.Vout) (bchain.AddressD
 		return nil, err
 	}
 
-	scriptClass, addresses, _, err := txscript.ExtractPkScriptAddrs(txscript.DefaultScriptVersion, script, &dch.TestNet3Params)
+	var params dch.Params
+	if p.Params.Name == "mainnet" {
+		params = dch.MainNetParams
+	} else {
+		params = dch.TestNet3Params
+	}
+
+	scriptClass, addresses, _, err := txscript.ExtractPkScriptAddrs(txscript.DefaultScriptVersion, script, &params)
 	if err != nil {
 		return nil, err
 	}
