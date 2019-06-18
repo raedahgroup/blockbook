@@ -54,21 +54,21 @@ func NewDecredParser(params *chaincfg.Params, c *btc.Configuration) *DecredParse
 // GetChainParams contains network parameters for the main Decred network,
 // and the test Decred network
 func GetChainParams(chain string) *chaincfg.Params {
-	if !chaincfg.IsRegistered(&MainNetParams) {
-		err := chaincfg.Register(&MainNetParams)
-		if err == nil {
-			err = chaincfg.Register(&TestNet3Params)
-		}
-		if err != nil {
+	var param *chaincfg.Params
+
+	switch chain {
+	case "testnet3":
+		param = &TestNet3Params
+	default:
+		param = &MainNetParams
+	}
+
+	if !chaincfg.IsRegistered(param) {
+		if err := chaincfg.Register(param); err != nil {
 			panic(err)
 		}
 	}
-	switch chain {
-	case "testnet3":
-		return &TestNet3Params
-	default:
-		return &MainNetParams
-	}
+	return param
 }
 
 // ParseBlock parses raw block to our Block struct
