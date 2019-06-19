@@ -25,7 +25,7 @@ const (
 var (
 	// MainNetParams are parser parameters for mainnet
 	MainNetParams chaincfg.Params
-	// TestNetParams are parser parameters for testnet
+	// TestNet3Params are parser parameters for testnet
 	TestNet3Params chaincfg.Params
 )
 
@@ -75,20 +75,19 @@ func GetChainParams(chain string) *chaincfg.Params {
 // it has special handling for Auxpow blocks that cannot be parsed by standard btc wire parser
 func (p *DecredParser) ParseBlock(b []byte) (*bchain.Block, error) {
 	r := bytes.NewReader(b)
-	w := wire.MsgBlock{}
 	h := wire.BlockHeader{}
-	err := h.Deserialize(r)
-	if err != nil {
+	if err := h.Deserialize(r); err != nil {
 		return nil, err
 	}
+
 	if (h.Version & utils.VersionAuxpow) != 0 {
-		if err = utils.SkipAuxpow(r); err != nil {
+		if err := utils.SkipAuxpow(r); err != nil {
 			return nil, err
 		}
 	}
 
-	err = utils.DecodeTransactions(r, 0, wire.WitnessEncoding, &w)
-	if err != nil {
+	var w wire.MsgBlock
+	if err := utils.DecodeTransactions(r, 0, wire.WitnessEncoding, &w); err != nil {
 		return nil, err
 	}
 
@@ -107,38 +106,33 @@ func (p *DecredParser) ParseBlock(b []byte) (*bchain.Block, error) {
 }
 
 func (p *DecredParser) ParseTxFromJson(jsonTx json.RawMessage) (*bchain.Tx, error) {
-	getTxResult := GetTransactionResult{}
-	err := json.Unmarshal([]byte(jsonTx), &getTxResult.Result)
-	if err != nil {
+	var getTxResult GetTransactionResult
+	if err := json.Unmarshal([]byte(jsonTx), &getTxResult.Result); err != nil {
 		return nil, err
 	}
 
-	var vins = make([]bchain.Vin, 0)
-	var vouts []bchain.Vout
-
-	for _, input := range getTxResult.Result.Vin {
-		vin := bchain.Vin{
+	vins := make([]bchain.Vin, len(getTxResult.Result.Vin))
+	for index, input := range getTxResult.Result.Vin {
+		vins[index] = bchain.Vin{
 			Coinbase:  input.Coinbase,
 			Txid:      input.Txid,
 			Vout:      input.Vout,
 			ScriptSig: bchain.ScriptSig{},
 			Sequence:  input.Sequence,
-			Addresses: []string{},
+			// Addresses: []string{},
 		}
-		vins = append(vins, vin)
 	}
 
-	for _, output := range getTxResult.Result.Vout {
-		valueSat := *big.NewInt(int64(output.Value * 100000000))
-		vout := bchain.Vout{
-			ValueSat: valueSat,
+	vouts := make([]bchain.Vout, len(getTxResult.Result.Vout))
+	for index, output := range getTxResult.Result.Vout {
+		vouts[index] = bchain.Vout{
+			ValueSat: *big.NewInt(int64(output.Value * 100000000)),
 			N:        output.N,
 			ScriptPubKey: bchain.ScriptPubKey{
 				Hex:       output.ScriptPubKey.Hex,
 				Addresses: output.ScriptPubKey.Addresses,
 			},
 		}
-		vouts = append(vouts, vout)
 	}
 
 	tx := &bchain.Tx{
