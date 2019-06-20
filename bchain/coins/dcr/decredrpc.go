@@ -677,7 +677,7 @@ func (d *DecredRPC) SendRawTransaction(tx string) (string, error) {
 		Params: []interface{}{tx},
 	}
 
-	sendRawTxResult := SendRawTransactionResult{}
+	var sendRawTxResult SendRawTransactionResult
 	err := d.Call(sendRawTxRequest, &sendRawTxResult)
 	if err != nil {
 		return "", err
