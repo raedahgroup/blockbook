@@ -292,6 +292,8 @@ type EstimateFeeResult struct {
 }
 
 type SendRawTransactionResult struct {
+	Error  Error  `json:"error"`
+	Result string `json:"result"`
 }
 
 type DecodeRawTransactionResult struct {
@@ -675,13 +677,17 @@ func (d *DecredRPC) SendRawTransaction(tx string) (string, error) {
 		Params: []interface{}{tx},
 	}
 
-	var res string
-	err := d.Call(sendRawTxRequest, res)
+	sendRawTxResult := SendRawTransactionResult{}
+	err := d.Call(sendRawTxRequest, &sendRawTxResult)
 	if err != nil {
 		return "", err
 	}
 
-	return res, nil
+	if sendRawTxResult.Error.Message != "" {
+		return "", fmt.Errorf("error sending raw transaction: %s", sendRawTxResult.Error.Message)
+	}
+
+	return sendRawTxResult.Result, nil
 }
 
 // Call calls Backend RPC interface, using RPCMarshaler interface to marshall the request
