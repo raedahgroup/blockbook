@@ -10,36 +10,11 @@ import (
 	"blockbook/bchain/coins/btc"
 	"blockbook/bchain/coins/utils"
 
+	cfg "github.com/decred/dcrd/chaincfg"
 	"github.com/decred/dcrd/txscript"
 	"github.com/martinboehm/btcd/wire"
 	"github.com/martinboehm/btcutil/chaincfg"
-
-	dch "github.com/decred/dcrd/chaincfg"
 )
-
-const (
-	MainnetMagic wire.BitcoinNet = 0xd9b400f9
-	TestnetMagic wire.BitcoinNet = 0xb194aa75
-)
-
-var (
-	// MainNetParams are parser parameters for mainnet
-	MainNetParams chaincfg.Params
-	// TestNet3Params are parser parameters for testnet
-	TestNet3Params chaincfg.Params
-)
-
-func init() {
-	MainNetParams = chaincfg.MainNetParams
-	MainNetParams.Net = MainnetMagic
-	MainNetParams.PubKeyHashAddrID = []byte{0x07, 0x3f}
-	MainNetParams.ScriptHashAddrID = []byte{0x07, 0x1a}
-
-	TestNet3Params = chaincfg.TestNet3Params
-	TestNet3Params.Net = TestnetMagic
-	TestNet3Params.PubKeyHashAddrID = []byte{0x0f, 0x21}
-	TestNet3Params.ScriptHashAddrID = []byte{0x0e, 0xfc}
-}
 
 // DecredParser handle
 type DecredParser struct {
@@ -52,17 +27,34 @@ func NewDecredParser(params *chaincfg.Params, c *btc.Configuration) *DecredParse
 }
 
 // GetChainParams contains network parameters for the main Decred network,
-// and the test Decred network
+// and the test Decred network. Decred's chaincfg.Params configuration is based
+// of bitcoin's configuration thus decred specific network configuration is used.
 func GetChainParams(chain string) *chaincfg.Params {
-	var param *chaincfg.Params
+	var dcrParams cfg.Params
 
 	switch chain {
 	case "testnet3":
-		param = &TestNet3Params
+		dcrParams = cfg.TestNet3Params
 	default:
-		param = &MainNetParams
+		dcrParams = cfg.MainNetParams
 	}
 
+	// delete unnecessary/conflicting data e.g deployments
+	dcrParams.Deployments = nil
+
+	// Convert the decred's config to binary
+	byteData, err := json.Marshal(dcrParams)
+	if err != nil {
+		panic(err)
+	}
+
+	// Unmarshal the decred binary config to chaincfg.Params struct type.
+	var param *chaincfg.Params
+	if err := json.Unmarshal(byteData, &param); err != nil {
+		panic(err)
+	}
+
+	// Register the unmarshalled network configuration.
 	if !chaincfg.IsRegistered(param) {
 		if err := chaincfg.Register(param); err != nil {
 			panic(err)
@@ -165,11 +157,11 @@ func (p *DecredParser) GetAddrDescFromVout(output *bchain.Vout) (bchain.AddressD
 		return nil, err
 	}
 
-	var params dch.Params
+	var params cfg.Params
 	if p.Params.Name == "mainnet" {
-		params = dch.MainNetParams
+		params = cfg.MainNetParams
 	} else {
-		params = dch.TestNet3Params
+		params = cfg.TestNet3Params
 	}
 
 	scriptClass, addresses, _, err := txscript.ExtractPkScriptAddrs(txscript.DefaultScriptVersion, script, &params)
