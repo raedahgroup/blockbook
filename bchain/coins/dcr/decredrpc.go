@@ -684,7 +684,7 @@ func (d *DecredRPC) SendRawTransaction(tx string) (string, error) {
 	}
 
 	if sendRawTxResult.Error.Message != "" {
-		return "", fmt.Errorf("error sending raw transaction: %s", sendRawTxResult.Error.Message)
+		return "", mapToStandardErr("error sending raw transaction: %s", sendRawTxResult.Error.Message)
 	}
 
 	return sendRawTxResult.Result, nil
