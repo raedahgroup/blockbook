@@ -16,45 +16,58 @@ import (
 	"github.com/martinboehm/btcutil/chaincfg"
 )
 
+const (
+	// MainnetMagic is mainnet network constant
+	MainnetMagic wire.BitcoinNet = 0xd9b400f9
+	// TestnetMagic is testnet network constant
+	TestnetMagic wire.BitcoinNet = 0xb194aa75
+)
+
+var (
+	// MainNetParams are parser parameters for mainnet
+	MainNetParams chaincfg.Params
+	// TestNet3Params are parser parameters for testnet
+	TestNet3Params chaincfg.Params
+)
+
+func init() {
+	MainNetParams = chaincfg.MainNetParams
+	MainNetParams.Net = MainnetMagic
+	MainNetParams.PubKeyHashAddrID = []byte{0x07, 0x3f}
+	MainNetParams.ScriptHashAddrID = []byte{0x07, 0x1a}
+
+	TestNet3Params = chaincfg.TestNet3Params
+	TestNet3Params.Net = TestnetMagic
+	TestNet3Params.PubKeyHashAddrID = []byte{0x0f, 0x21}
+	TestNet3Params.ScriptHashAddrID = []byte{0x0e, 0xfc}
+}
+
 // DecredParser handle
 type DecredParser struct {
 	*btc.BitcoinParser
+	baseParser *bchain.BaseParser
 }
 
 // NewDecredParser returns new DecredParser instance
 func NewDecredParser(params *chaincfg.Params, c *btc.Configuration) *DecredParser {
-	return &DecredParser{BitcoinParser: btc.NewBitcoinParser(params, c)}
+	return &DecredParser{
+		BitcoinParser: btc.NewBitcoinParser(params, c),
+		baseParser:    &bchain.BaseParser{},
+	}
 }
 
 // GetChainParams contains network parameters for the main Decred network,
-// and the test Decred network. Decred's chaincfg.Params configuration is based
-// of bitcoin's configuration thus decred specific network configuration is used.
+// and the test Decred network.
 func GetChainParams(chain string) *chaincfg.Params {
-	var dcrParams cfg.Params
+	var param *chaincfg.Params
 
 	switch chain {
 	case "testnet3":
-		dcrParams = cfg.TestNet3Params
+		param = &TestNet3Params
 	default:
-		dcrParams = cfg.MainNetParams
+		param = &MainNetParams
 	}
 
-	// delete unnecessary/conflicting data e.g deployments
-	dcrParams.Deployments = nil
-
-	// Convert the decred's config to binary
-	byteData, err := json.Marshal(dcrParams)
-	if err != nil {
-		panic(err)
-	}
-
-	// Unmarshal the decred binary config to chaincfg.Params struct type.
-	var param *chaincfg.Params
-	if err := json.Unmarshal(byteData, &param); err != nil {
-		panic(err)
-	}
-
-	// Register the unmarshalled network configuration.
 	if !chaincfg.IsRegistered(param) {
 		if err := chaincfg.Register(param); err != nil {
 			panic(err)
@@ -63,8 +76,7 @@ func GetChainParams(chain string) *chaincfg.Params {
 	return param
 }
 
-// ParseBlock parses raw block to our Block struct
-// it has special handling for Auxpow blocks that cannot be parsed by standard btc wire parser
+// ParseBlock parses raw block to our Block struct.
 func (p *DecredParser) ParseBlock(b []byte) (*bchain.Block, error) {
 	r := bytes.NewReader(b)
 	h := wire.BlockHeader{}
@@ -191,4 +203,14 @@ func (p *DecredParser) GetAddressesFromAddrDesc(addrDesc bchain.AddressDescripto
 	}
 
 	return addrs, true, nil
+}
+
+// PackTx packs transaction to byte array using protobuf
+func (p *DecredParser) PackTx(tx *bchain.Tx, height uint32, blockTime int64) ([]byte, error) {
+	return p.baseParser.PackTx(tx, height, blockTime)
+}
+
+// UnpackTx unpacks transaction from protobuf byte array
+func (p *DecredParser) UnpackTx(buf []byte) (*bchain.Tx, uint32, error) {
+	return p.baseParser.UnpackTx(buf)
 }

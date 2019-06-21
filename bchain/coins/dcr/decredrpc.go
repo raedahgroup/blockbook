@@ -85,7 +85,7 @@ func (d *DecredRPC) Initialize() error {
 	d.BitcoinRPC.Parser = NewDecredParser(params, d.BitcoinRPC.ChainConfig)
 
 	// parameters for getInfo request
-	if params.Name == "mainnet" {
+	if params.Net == MainnetMagic {
 		d.BitcoinRPC.Testnet = false
 		d.BitcoinRPC.Network = "livenet"
 	} else {
