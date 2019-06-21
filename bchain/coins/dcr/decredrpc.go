@@ -283,6 +283,11 @@ type GetTransactionResult struct {
 	} `json:"result"`
 }
 
+type MempoolTxsResult struct {
+	Error  Error    `json:"error"`
+	Result []string `json:"result"`
+}
+
 type EstimateSmartFeeResult struct {
 	Error  Error `json:"error"`
 	Result struct {
@@ -626,10 +631,6 @@ func (d *DecredRPC) GetBlockInfo(hash string) (*bchain.BlockInfo, error) {
 	return bInfo, nil
 }
 
-func (d *DecredRPC) GetMempoolTransactions() ([]string, error) {
-	return nil, nil
-}
-
 // GetTransaction returns a transaction by the transaction ID
 func (d *DecredRPC) GetTransaction(txid string) (*bchain.Tx, error) {
 	r, err := d.getRawTransaction(txid)
@@ -675,10 +676,37 @@ func (d *DecredRPC) getRawTransaction(txid string) (json.RawMessage, error) {
 	return json.RawMessage(bytes), nil
 }
 
+// GetTransactionForMempool returns the full tx information identified by the
+// provided txid.
 func (d *DecredRPC) GetTransactionForMempool(txid string) (*bchain.Tx, error) {
-	return nil, nil
+	return d.GetTransaction(txid)
 }
 
+// GetMempoolTransactions returns a slice of regular transactions currently in
+// the mempool.
+func (d *DecredRPC) GetMempoolTransactions() ([]string, error) {
+	verbose := false
+	txType := "regular"
+	mempoolRequest := GenericCmd{
+		ID:     1,
+		Method: "getrawmempool",
+		Params: []interface{}{&verbose, &txType},
+	}
+
+	var mempool MempoolTxsResult
+	if err := d.Call(mempoolRequest, &mempool); err != nil {
+		return []string{}, err
+	}
+
+	if mempool.Error.Message != "" {
+		return nil, mapToStandardErr("Error fetching mempool data: %s", mempool.Error)
+	}
+
+	return mempool.Result, nil
+}
+
+// GetTransactionSpecific returns the json raw message for the tx identified by
+// the provided txid.
 func (d *DecredRPC) GetTransactionSpecific(tx *bchain.Tx) (json.RawMessage, error) {
 	return d.getRawTransaction(tx.Txid)
 }
@@ -693,7 +721,7 @@ func (d *DecredRPC) EstimateSmartFee(blocks int, conservative bool) (big.Int, er
 
 	var smartFeeEstimate EstimateSmartFeeResult
 	if err := d.Call(estimateSmartFeeRequest, &smartFeeEstimate); err != nil {
-		return *big.NewInt(0), nil
+		return *big.NewInt(0), err
 	}
 
 	if smartFeeEstimate.Error.Message != "" {
