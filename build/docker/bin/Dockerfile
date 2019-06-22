@@ -6,7 +6,7 @@ RUN apt-get update -qq && \
     apt-get upgrade -y -qq && \
     apt-get install -y -qq build-essential git wget pkg-config lxc-dev libzmq3-dev \
                        libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev \
-                       liblz4-dev graphviz apt-utils && \
+                       liblz4-dev graphviz apt-utils tree && \
     apt-get clean
 
 ENV GOLANG_VERSION=go1.12.4.linux-amd64
@@ -44,7 +44,7 @@ RUN \
     git clone -b add-integration-tests https://github.com/dmigwi/blockbook.git && \
     cd blockbook && \
     dep ensure -vendor-only && \
-    cd vendor && go list ./... && cd ../ \
+    ls -las && tree . -d && \
     cp -r vendor /build/vendor
 
 ADD Makefile /build/Makefile
