@@ -6,9 +6,10 @@
         "563baae350810b5077cbced28b50425300f941374a9edce32f753b494f7bfb13",
         "bbee4bc916e8788f01d1a7c9b4b651731d7323b2f26ddd9c1285a9dad18602d9"
     ],
+    "blockSize": 2725,
     "txDetails": {
         "563baae350810b5077cbced28b50425300f941374a9edce32f753b494f7bfb13": {
-            "hex": "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff00ffffffff0398ac6f0800000000000017a914f5916158e3e2c4551c1796708db8367207ed13bb87000000000000000000000e6a0c976b0500f2de8cf4e5f53edc4aad9e320000000000001976a914f36761eb3326ea1f1f6583430e82d72fbb6a2ccc88ac00000000000000000130b80d3b0000000000000000ffffffff0800002f646372642f",
+            "hex": "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff00ffffffff03be80eb0600000000000017a914f5916158e3e2c4551c1796708db8367207ed13bb87000000000000000000000e6a0ce0930400d477e87e1581d8d0809c85290000000000001976a91432ea2b655edd3933e892f7b1562c42dfcc01e83388ac000000000000000001398570300000000000000000ffffffff0f00002f626565706f6f6c2e6f72672f",
             "txid": "563baae350810b5077cbced28b50425300f941374a9edce32f753b494f7bfb13",
             "blocktime": 1544597324,
             "time": 1544597324,
@@ -30,14 +31,17 @@
                         "hex": "a914f5916158e3e2c4551c1796708db8367207ed13bb87",
                         "addresses": [
                             "Dcur2mcGjmENx4DhNqDctW5wJCVyT3Qeqkx"
-                         ]
+                        ]
                     }
                 },
                 {
                     "value": 0,
                     "n": 1,
                     "scriptPubKey": {
-                        "hex": "6a0ce0930400d477e87e1581d8d0"
+                        "hex": "6a0ce0930400d477e87e1581d8d0",
+                        "addresses": [
+                            "OP_RETURN e0930400d477e87e1581d8d0"
+                        ]
                     }
                 },
                 {
@@ -66,14 +70,6 @@
                     "sequence": 4294967295,
                     "scriptSig": {
                         "hex": "47304402203de49d09036c6dbb4ee31fdf5e1e7de555a6e2d9d0adb6852611a86a74d461eb02203331a2e5502267cf9a9ed0b99df37a413edcdab56c78b50ee22de72343982da1012103d5961d435ad3b48439aa08b292d2f3b99ee59bfe2c1aff4daf603758da84df11"
-                    }
-                },
-                {
-                    "txid": "88f47a7e04488500cc24666ab2b940828c0fd05985639c9168395e02d09a70f9",
-                    "vout": 1,
-                    "sequence": 4294967294,
-                    "scriptSig": {
-                        "hex": "47304402201cac13c2cbac8e536bc922462f810ffc086e8cf4a51a7f73d8d08aaf56372d6902206cc3518b6024d9b7c4f2f30e5dbb954f6d4d77e6b76eccc1081a8ed505892a7001210209fa85c88fb0b628305a169ca62a103c0da2cace04300810ae57755ef31caae9"
                     }
                 }
             ],
