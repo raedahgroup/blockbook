@@ -14,7 +14,7 @@ ENV ROCKSDB_VERSION=v5.18.3
 ENV GOPATH=/go
 ENV PATH=$PATH:$GOPATH/bin
 ENV CGO_CFLAGS="-I/opt/rocksdb/include"
-ENV CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy -llz4 -ldl"
+ENV CGO_LDFLAGS="-L/opt/rocksdb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy -llz4"
 
 RUN mkdir /build
 
@@ -43,7 +43,7 @@ RUN \
     cd $GOPATH/src && \
     git clone -b add-integration-tests https://github.com/dmigwi/blockbook.git && \
     cd blockbook && \
-    dep ensure && \
+    dep ensure --vendor-only && \
     cp -r vendor /build/vendor
 
 ADD Makefile /build/Makefile
