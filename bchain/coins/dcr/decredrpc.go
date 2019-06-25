@@ -268,12 +268,11 @@ type RawTx struct {
 	Vin           []Vin  `json:"vin"`
 	Vout          []Vout `json:"vout"`
 	Expiry        uint32 `json:"expiry"`
-	BlockHash     string `json:"blockhash,omitempty"`
-	BlockHeight   int64  `json:"blockheight,omitempty"`
 	BlockIndex    uint32 `json:"blockindex,omitempty"`
 	Confirmations int64  `json:"confirmations,omitempty"`
 	Time          int64  `json:"time,omitempty"`
 	Blocktime     int64  `json:"blocktime,omitempty"`
+	TxExtraInfo
 }
 
 type GetTransactionResult struct {
@@ -316,7 +315,13 @@ type DecodeRawTransactionResult struct {
 		Expiry   uint32 `json:"expiry"`
 		Vin      []Vin  `json:"vin"`
 		Vout     []Vout `json:"vout"`
+		TxExtraInfo
 	} `json:"result"`
+}
+
+type TxExtraInfo struct {
+	BlockHeight uint32 `json:"blockheight,omitempty"`
+	BlockHash   string `json:"blockhash,omitempty"`
 }
 
 func (d *DecredRPC) GetChainInfo() (*bchain.ChainInfo, error) {
@@ -364,10 +369,9 @@ func (d *DecredRPC) GetChainInfo() (*bchain.ChainInfo, error) {
 	return chainInfo, nil
 }
 
-// getBestBlock returns details for the block mined immediately before the
-// official dcrd chain's bestblock i.e. it has a minimum of 1 confirmation.
-// The chain's best block is not returned as its block validity is not guarranteed.
-func (d *DecredRPC) getBestBlock() (*GetBestBlockResult, error) {
+// getChainBestBlock returns the best block according to dcrd chain. This block
+// has no atleast one confirming block.
+func (d *DecredRPC) getChainBestBlock() (*GetBestBlockResult, error) {
 	bestBlockRequest := GenericCmd{
 		ID:     1,
 		Method: "getbestblock",
@@ -382,6 +386,18 @@ func (d *DecredRPC) getBestBlock() (*GetBestBlockResult, error) {
 		return nil, mapToStandardErr("Error fetching best block: %s", bestBlockResult.Error)
 	}
 
+	return &bestBlockResult, nil
+}
+
+// getBestBlock returns details for the block mined immediately before the
+// official dcrd chain's bestblock i.e. it has a minimum of 1 confirmation.
+// The chain's best block is not returned as its block validity is not guarranteed.
+func (d *DecredRPC) getBestBlock() (*GetBestBlockResult, error) {
+	bestBlockResult, err := d.getChainBestBlock()
+	if err != nil {
+		return nil, err
+	}
+
 	// remove the block with less than 1 confirming block
 	bestBlockResult.Result.Height--
 	validBlockHash, err := d.getBlockHashByHeight(bestBlockResult.Result.Height)
@@ -391,7 +407,7 @@ func (d *DecredRPC) getBestBlock() (*GetBestBlockResult, error) {
 
 	bestBlockResult.Result.Hash = validBlockHash.Result
 
-	return &bestBlockResult, nil
+	return bestBlockResult, nil
 }
 
 // GetBestBlockHash returns the block hash of the most recent block to be mined
@@ -599,6 +615,9 @@ func (d *DecredRPC) decodeRawTransaction(txHex string) (*bchain.Tx, error) {
 		LockTime: decodeRawTxResult.Result.Locktime,
 	}
 
+	// Add block height and block hash info
+	tx.CoinSpecificData = decodeRawTxResult.Result.TxExtraInfo
+
 	return tx, nil
 }
 
@@ -683,7 +702,8 @@ func (d *DecredRPC) GetTransactionForMempool(txid string) (*bchain.Tx, error) {
 }
 
 // GetMempoolTransactions returns a slice of regular transactions currently in
-// the mempool.
+// the mempool. The block whose validation is still undecided will have its txs,
+// listed like they are still in the mempool till the block is confirmed.
 func (d *DecredRPC) GetMempoolTransactions() ([]string, error) {
 	verbose := false
 	txType := "regular"
@@ -701,6 +721,18 @@ func (d *DecredRPC) GetMempoolTransactions() ([]string, error) {
 	if mempool.Error.Message != "" {
 		return nil, mapToStandardErr("Error fetching mempool data: %s", mempool.Error)
 	}
+
+	unvalidatedBlockResult, err := d.getChainBestBlock()
+	if err != nil {
+		return nil, err
+	}
+
+	unvalidatedBlock, err := d.getBlock(unvalidatedBlockResult.Result.Hash)
+	if err != nil {
+		return nil, err
+	}
+
+	mempool.Result = append(mempool.Result, unvalidatedBlock.Result.Tx...)
 
 	return mempool.Result, nil
 }
