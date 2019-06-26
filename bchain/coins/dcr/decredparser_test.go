@@ -127,7 +127,6 @@ func TestGetAddrDescFromAddress(t *testing.T) {
 			wantErr: false,
 		},
 	}
-	parser := NewDecredParser(GetChainParams("testnet3"), &btc.Configuration{})
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -172,7 +171,6 @@ func TestGetAddrDescFromVout(t *testing.T) {
 			wantErr: false,
 		},
 	}
-	parser := NewDecredParser(GetChainParams("testnet3"), &btc.Configuration{})
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -221,8 +219,6 @@ func TestGetAddressesFromAddrDesc(t *testing.T) {
 			wantErr: false,
 		},
 	}
-
-	parser := NewDecredParser(GetChainParams("testnet3"), &btc.Configuration{})
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
